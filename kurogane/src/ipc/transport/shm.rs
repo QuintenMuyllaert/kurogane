@@ -25,6 +25,13 @@ impl SharedBuffer {
 
     /// Create a new framed shared memory region.
     pub fn create(payload_size: usize) -> Result<Self, String> {
+        if payload_size > MAX_SHM_SIZE.saturating_sub(SHM_HEADER_SIZE) {
+            return Err(format!("SHM payload too large: {}", payload_size));
+        }
+        if payload_size > u32::MAX as usize {
+            return Err(format!("SHM payload exceeds u32 header: {}", payload_size));
+        }
+
         let total_size = SHM_HEADER_SIZE + payload_size;
 
         let shmem = ShmemConf::new()
