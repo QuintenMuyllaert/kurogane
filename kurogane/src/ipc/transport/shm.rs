@@ -163,4 +163,56 @@ impl SharedBuffer {
             Ok(f(payload))
         }
     }
+
+    /// Copy the payload out of shared memory into an owned Vec<u8>.
+    ///
+    /// Unlike with_read(), the caller does not borrow memory backed by a
+    /// cross-process mapping, which avoids:
+    ///
+    /// - Accidental slice retention beyond the SHM lifetime
+    /// - Cross-thread borrowing of mapped memory
+    /// - Future TOCTOU-style misuse
+    ///
+    /// The current IPC fast path prefers with_read() to avoid an additional
+    /// allocation/copy when the payload is consumed synchronously.
+    ///
+    /// This API exists for cases where the payload must outlive the immediate
+    /// read scope or be stored/transferred safely.
+    pub fn read_to_vec(&self) -> Result<Vec<u8>, String> {
+        if self.size < SHM_HEADER_SIZE {
+            return Err("SHM too small for header".into());
+        }
+
+        unsafe {
+            let ptr = self.shmem.as_ptr();
+
+            let mut len_bytes = [0u8; 4];
+
+            std::ptr::copy_nonoverlapping(
+                ptr,
+                len_bytes.as_mut_ptr(),
+                SHM_HEADER_SIZE,
+            );
+
+            let payload_len = u32::from_le_bytes(len_bytes) as usize;
+
+            if payload_len > self.size - SHM_HEADER_SIZE {
+                return Err(format!(
+                    "Corrupted SHM: payload_len={} > available={}",
+                    payload_len,
+                    self.size - SHM_HEADER_SIZE
+                ));
+            }
+
+            let mut out = vec![0u8; payload_len];
+
+            std::ptr::copy_nonoverlapping(
+                ptr.add(SHM_HEADER_SIZE),
+                out.as_mut_ptr(),
+                payload_len,
+            );
+
+            Ok(out)
+        }
+    }
 }
