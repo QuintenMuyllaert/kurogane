@@ -42,10 +42,21 @@ impl SharedBuffer {
             .open()
             .map_err(|e| format!("shm open '{}': {}", name, e))?;
 
-        // We still store expected_size, but will validate against header
+        let actual_size = shmem.len();
+
+        // Shared memory mappings may be larger than requested due to OS page/alignment.
+        // Only enforce a lower bound; equality is not guaranteed.
+        if actual_size < expected_size {
+            return Err(format!(
+                "SHM smaller than expected: expected={} actual={}",
+                expected_size,
+                actual_size
+            ));
+        }
+
         Ok(Self {
             shmem,
-            size: expected_size,
+            size: expected_size, // protocol boundary, not actual mapped size
         })
     }
 
