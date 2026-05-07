@@ -4,7 +4,6 @@
 //! Commands can be registered before runtime boot and will be installed
 //! when the browser process initializes.
 
-use cef::*;
 use std::collections::HashMap;
 use serde_json::Value;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -56,12 +55,6 @@ impl IpcDispatcher {
     }
 }
 
-/// Tracks a pending RPC call awaiting response
-pub struct PendingCall {
-    pub frame: Frame,
-    pub frame_id: String,
-}
-
 //
 // Global state
 //
@@ -75,19 +68,12 @@ static PENDING_COMMANDS: OnceLock<Mutex<Vec<(String, IpcHandler)>>> = OnceLock::
 /// Binary commands registered before runtime boot (pending buffer)
 static PENDING_BINARY_COMMANDS: OnceLock<Mutex<Vec<(String, BinaryHandler)>>> = OnceLock::new();
 
-/// Tracks pending RPC calls
-static PENDING_CALLS: OnceLock<Mutex<HashMap<IpcId, PendingCall>>> = OnceLock::new();
-
 /// Keep SHM alive until the renderer signals it has finished reading (msg_type 5)
 static RESPONSE_SHM_STORE: OnceLock<Mutex<HashMap<IpcId, SharedBuffer>>> = OnceLock::new();
 
 //
 // State accessors
 //
-
-pub fn pending_calls() -> &'static Mutex<HashMap<IpcId, PendingCall>> {
-    PENDING_CALLS.get_or_init(|| Mutex::new(HashMap::new()))
-}
 
 pub fn pending_commands() -> &'static Mutex<Vec<(String, IpcHandler)>> {
     PENDING_COMMANDS.get_or_init(|| Mutex::new(Vec::new()))

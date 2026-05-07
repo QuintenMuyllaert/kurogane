@@ -5,7 +5,7 @@
 use cef::*;
 use crate::ipc::protocol::{set_kind, IpcMsgKind, IpcId};
 use crate::ipc::renderer_state::{registry};
-use crate::ipc::browser_state::{pending_calls, get_dispatcher, IpcResult};
+use crate::ipc::browser_state::{get_dispatcher, IpcResult};
 use crate::debug;
 
 // BROWSER
@@ -24,53 +24,32 @@ pub fn handle_invoke(
     })
     .unwrap_or_else(|_| Err("IPC handler panicked".to_string()));
 
-    let frame_id = {
-        let s: CefString = (&frame.identifier()).into();
-        s.to_string()
-    };
-
-    pending_calls().lock().unwrap().insert(
-        id,
-        crate::ipc::browser_state::PendingCall {
-            frame: frame.clone(),
-            frame_id
-        },
-    );
-
-    send_response(id, result);
+    send_response(frame, id, result);
 }
 
 /// Send JSON response to renderer
-pub fn send_response(id: IpcId, result: IpcResult) {
-    let call = {
-        let mut map = pending_calls().lock().unwrap();
-        map.remove(&id)
-    };
-
-    let Some(call) = call else {
-        debug!("[IPC Browser] dropping response {}, caller gone", id);
-        return;
-    };
-
+pub fn send_response(frame: &Frame, id: IpcId, result: IpcResult) {
     // frame no longer exists
-    if call.frame.is_valid() == 0 {
+    if frame.is_valid() == 0 {
         debug!("[IPC Browser] frame destroyed, dropping {}", id);
         return;
     }
 
-    // navigation changed frame identity
-    let current_id = {
-        let s: CefString = (&call.frame.identifier()).into();
-        s.to_string()
+    let mut msg = match process_message_create(Some(&CefString::from("ipc"))) {
+        Some(m) => m,
+        None => {
+            debug!("[IPC Browser] failed to create process message");
+            return;
+        }
     };
 
-    if current_id != call.frame_id {
-        debug!("[IPC Browser] navigation changed frame, dropping stale response {}", id);
-        return;
-    }
-
-    let mut msg = process_message_create(Some(&CefString::from("ipc"))).unwrap();
-    let mut args = msg.argument_list().unwrap();
+    let mut args = match msg.argument_list() {
+        Some(a) => a,
+        None => {
+            debug!("[IPC Browser] missing argument list");
+            return;
+        }
+    };
 
     match result {
         Ok(payload) => {
@@ -86,7 +65,7 @@ pub fn send_response(id: IpcId, result: IpcResult) {
         }
     }
 
-    call.frame.send_process_message(ProcessId::RENDERER, Some(&mut msg));
+    frame.send_process_message(ProcessId::RENDERER, Some(&mut msg));
 }
 
 // RENDERER
