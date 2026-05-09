@@ -53,6 +53,14 @@ fn probe(cmd: &str) -> bool {
 }
 
 pub fn run(json: bool) -> Result<()> {
+
+    // JSON mode
+    if json {
+        let report = collector::collect_all();
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+
     tui::section("Kurogane Doctor");
 
     let mut warn = 0;
@@ -180,12 +188,6 @@ pub fn run(json: bool) -> Result<()> {
     }
 
     println!();
-
-    if json {
-        let report = collector::collect_all();
-        println!("{}", serde_json::to_string_pretty(&report)?);
-        return Ok(());
-    }
 
     Ok(())
 }
