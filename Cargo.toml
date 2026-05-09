@@ -6,3 +6,15 @@ members = [
     "kurogane-layout",
     "tests"
 ]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+license = "MIT"
+authors = [
+    "Piyush Raj <hello@piyushraj.org>"
+]
+repository = "https://github.com/0x48piraj/kurogane"
+
+[workspace.dependencies]
+kurogane-layout = { path = "kurogane-layout" }
