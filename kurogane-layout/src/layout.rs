@@ -12,6 +12,7 @@ pub fn cef_install_dir(version: &str) -> PathBuf {
     install_root().join(version)
 }
 
+/// Resolves a versioned managed CEF installation if it exists locally.
 pub fn installed_cef_root(version: &str) -> Option<PathBuf> {
     let root = cef_install_dir(version);
 

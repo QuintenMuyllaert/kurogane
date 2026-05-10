@@ -23,12 +23,16 @@ pub fn validate_cef_root(
     {
         require(root, "libcef.dll")?;
         require(root, "locales")?;
+        require(root, "chrome_elf.dll")?;
+        require(root, "icudtl.dat")?;
     }
 
     #[cfg(target_os = "linux")]
     {
         require(root, "libcef.so")?;
         require(root, "locales")?;
+        require(root, "icudtl.dat")?;
+        require(root, "chrome-sandbox")?;
     }
 
     #[cfg(target_os = "macos")]

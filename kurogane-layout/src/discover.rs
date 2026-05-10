@@ -25,6 +25,7 @@ pub enum DetectError {
     CurrentExe(#[from] std::io::Error),
 }
 
+/// Resolves the active CEF runtime using discovery precedence rules.
 pub fn detect_cef_root()
     -> Result<DetectedCef, DetectError>
 {
