@@ -1,19 +1,18 @@
 use anyhow::Result;
 use std::ffi::OsString;
 use std::process::Command;
-use std::{env, path::PathBuf};
+use kurogane_layout::cef_install_dir;
 
 use crate::tui;
 
 pub fn run(cargo_args: Vec<OsString>) -> Result<()> {
     tui::section("Kurogane Dev");
 
-    // TODO: XLR- leaving this to you, below current workaround for ENV.
-    // let version = env!("KUROGANE_CEF_VERSION");
-    // let cef = cef_install_dir(version);
+    let version = env!("KUROGANE_CEF_VERSION");
 
-    let version = env::var("KUROGANE_CEF_VERSION")?;
-    let cef: PathBuf = env::var("CEF_PATH")?.into();
+    let cef = std::env::var_os("CEF_PATH")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| cef_install_dir(version));
 
     tui::step("Checking Chromium engine");
 
@@ -26,25 +25,15 @@ pub fn run(cargo_args: Vec<OsString>) -> Result<()> {
         tui::field("path", tui::format_path(&cef));
     }
 
-    // Resolve the actual library root (where libcef.so lives)
-    let cef_lib_dir = if cef.join("libcef.so").exists() {
-        cef.clone()
-    } else {
-        cef.join(&version).join("cef_linux_x86_64")
-    };
-
     // Pass env to build step
     let mut cmd = Command::new("cargo");
-
     cmd.arg("run");
 
     for arg in cargo_args {
         cmd.arg(arg);
     }
 
-    // Set CEF_PATH to the actual library root for the application
-    cmd.env("CEF_PATH", &cef_lib_dir);
-    cmd.env("KUROGANE_CEF_VERSION", &version);
+    cmd.env("CEF_PATH", &cef);
 
     //
     // OS-specific runtime linking
@@ -52,7 +41,7 @@ pub fn run(cargo_args: Vec<OsString>) -> Result<()> {
     #[cfg(target_os = "linux")]
     {
         let mut ld = std::env::var("LD_LIBRARY_PATH").unwrap_or_default();
-        ld = format!("{}:{}", cef_lib_dir.display(), ld);
+        ld = format!("{}:{}", cef.display(), ld);
         cmd.env("LD_LIBRARY_PATH", ld);
     }
 
