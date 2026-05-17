@@ -9,7 +9,10 @@ pub fn run(cargo_args: Vec<OsString>) -> Result<()> {
     tui::section("Kurogane Dev");
 
     let version = env!("KUROGANE_CEF_VERSION");
-    let cef = cef_install_dir(version);
+
+    let cef = std::env::var_os("CEF_PATH")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| cef_install_dir(version));
 
     tui::step("Checking Chromium engine");
 
